@@ -2,18 +2,9 @@
 #include <string.h>
 #include <errno.h>
 
-// socket
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/un.h>
-#include <netdb.h>
-#include <unistd.h>
+#include "sntp.h"
 
-#define PORT 3003
 #define IP "127.0.0.1"
-#define BUF_SIZE 384
 
 int main(int argc, char* argv[]) {
   int sockfd;
@@ -21,10 +12,17 @@ int main(int argc, char* argv[]) {
   socklen_t addr_size;
 
   char buffer[BUF_SIZE];
+  int tos = IPTOS_LOWDELAY;
+
+  ssize_t size;
+
+  struct ntp_msg recv_msg;
 
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = inet_addr(IP);
   server_addr.sin_port = htons( PORT );
+
+  setsockopt(sockfd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)); // revisar
 
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
     fprintf(stderr, "[SERVER-ERROR]: socket create failed. %d: %s\n", errno, strerror(errno));
@@ -39,9 +37,12 @@ int main(int argc, char* argv[]) {
   addr_size = sizeof(client_addr);
   while (true) {
     printf("Esperando mensajes...\n");
-    recvfrom(sockfd, &buffer, BUF_SIZE, 0, (struct sockaddr *)&client_addr, &addr_size);
+    memset(&buffer, 0, BUF_SIZE);
+    size = recvfrom(sockfd, &buffer, BUF_SIZE, 0, (struct sockaddr *)&client_addr, &addr_size);
+    printf("[SERVER]: bytes received: %ld\n", size);
 
-    printf("[CLIENT]: %s\n", buffer);
+    memcpy(&recv_msg, buffer, sizeof(recv_msg));
+    printf("[CLIENT]: %d\n", recv_msg.status);
     // <- procesar mensaje
     // <- editar mensaje
     

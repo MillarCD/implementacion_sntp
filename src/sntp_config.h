@@ -1,3 +1,5 @@
+#include <time.h>
+
 // socket
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -10,6 +12,7 @@
 
 #define BUF_SIZE 48 // bytes
 #define PORT 3003
+#define IP "127.0.0.1"
 
 struct l_fixedpt {
   u_int32_t int_partl;

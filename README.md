@@ -9,3 +9,8 @@
   `./sever`
   
   `./client`
+  
+  
+## Referencias
+
+  - https://github.com/openntpd-portable/openntpd-openbsd/tree/master/src/usr.sbin/ntpd

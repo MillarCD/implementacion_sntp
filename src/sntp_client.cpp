@@ -48,7 +48,8 @@ int main(int argc, char* argv[]) {
 }
 
 int create_msg(struct ntp_msg *recv_msg) {
-  recv_msg->status = 27; // li=0, mode=3(client) version=3 00 011 011 = 27
+  recv_msg->status = 27; // li=0, mode=3(client) version=3 00 011 011 = 27 / recomended version = 1
+  // Todo el resto 0
   recv_msg->stratum = 1;
   recv_msg->ppoll = 2;
   recv_msg->precision = 3;

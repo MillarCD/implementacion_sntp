@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 
     // PROCESAR MENSAJE
     memcpy(&recv_msg, buffer, sizeof(recv_msg));
-    create_res(&recv_msg);
+    if (create_res(&recv_msg) == -1) continue;
     print_msg(&recv_msg);
     
 
@@ -74,6 +74,19 @@ int create_res(struct ntp_msg *recv_msg) {
  *  - Mode = 4 || de lo contrario Mode = 2 (symetric pasive)
  *  - if primary server -> root delay and root dispersion = 0
  */
+
+/*
+>>> mode_mask = int(b'111000',2)
+>>> mode_mask
+56
+>>> mode = (reply & mode_mask) >> 3
+>>> mode
+3
+>>> version_mask = bin(7<<0)
+>>> version_mask = 7<<0
+>>> version = (reply & version_mask) >> 0
+>>> version
+*/
   printf("Creando respuesta...\n");
   return 0;
 }

@@ -12,7 +12,7 @@
 
 #define BUF_SIZE 48 // bytes
 #define PORT 3003
-#define IP "127.0.0.1"
+#define IP "0.0.0.0"
 
 struct l_fixedpt {
   u_int32_t int_partl;

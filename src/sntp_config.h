@@ -1,5 +1,3 @@
-#include <time.h>
-
 // socket
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -14,14 +12,18 @@
 #define PORT 3003
 #define IP "0.0.0.0"
 
-struct l_fixedpt {
-  u_int32_t int_partl;
-  u_int32_t fractionl;
-};
+#define LI_MASK (7<<6)
+#define VERSION_MASK (7<<3)
+#define MODE_MASK (7<<0)
 
 struct s_fixedpt {
   u_int16_t int_parts;
   u_int16_t fractions;
+};
+
+struct l_fixedpt {
+  u_int32_t int_partl;
+  u_int32_t fractionl;
 };
 
 struct ntp_msg {

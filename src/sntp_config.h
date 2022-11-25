@@ -11,6 +11,7 @@
 #define BUF_SIZE 48 // bytes
 #define PORT 3003
 #define IP "0.0.0.0"
+#define	JAN_1970 2208988800UL
 
 #define LI_MASK (7<<6)
 #define VERSION_MASK (7<<3)

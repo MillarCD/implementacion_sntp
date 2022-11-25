@@ -5,8 +5,7 @@
 
 #include "sntp_config.h"
 
-
-int create_res(struct ntp_msg *recv_msg);
+int create_res(struct ntp_msg *query, struct ntp_msg *reply);
 int print_msg(struct ntp_msg *recv_msg);
 
 int main(int argc, char* argv[]) {
@@ -16,7 +15,7 @@ int main(int argc, char* argv[]) {
   char buffer[BUF_SIZE];
   int tos = IPTOS_LOWDELAY;
   ssize_t size;
-  struct ntp_msg recv_msg;
+  struct ntp_msg query, reply;
 
   // CONFIG
   server_addr.sin_family = AF_INET;
@@ -37,22 +36,27 @@ int main(int argc, char* argv[]) {
   }
 
   while (true) {
-    printf("Esperando mensajes...\n");
+    printf("[SERVER]: Esperando mensajes...\n");
     memset(&buffer, 0, BUF_SIZE);
+    memset(&query, 0, BUF_SIZE);
 
     // RECIBIR MENSAJE
     size = recvfrom(sockfd, &buffer, BUF_SIZE, 0, (struct sockaddr *)&client_addr, &addr_size);
     printf("[SERVER]: bytes received: %ld\n", size);
 
     // PROCESAR MENSAJE
-    memcpy(&recv_msg, buffer, sizeof(recv_msg));
 
-    print_msg(&recv_msg);
-    if (create_res(&recv_msg) == -1) continue;
+    memcpy(&query, buffer, sizeof(query));
+
+    printf("[CLIENT]:\n");
+    print_msg(&query);
+    printf("\n\n");
+    if (create_res(&query, &reply) == -1) continue;
     
 
     // ENVIAR REPUESTA
-    sendto(sockfd, &recv_msg, BUF_SIZE, 0, (const struct sockaddr *)&client_addr, addr_size);
+    sendto(sockfd, &reply, BUF_SIZE, 0, (const struct sockaddr *)&client_addr, addr_size);
+    
   }
 
   close(sockfd);
@@ -61,52 +65,40 @@ int main(int argc, char* argv[]) {
 }
 
 
-int create_res(struct ntp_msg *recv_msg) {
-/**
- * 
- *  PETICION
- *  - ignora todo menos el primer octeto
- *  - LI ignorar
- *  - Version 1,2,3 sino descartar
- *  - 
- *
- *  RESPUESTA
- *  - para conecciones primarias LI = 0, Stratum = 1 || LI = 3, Stratum = 0 
- *  - Version Number and Poll are copied
- *  - Mode = 4 || de lo contrario Mode = 2 (symetric pasive)
- *  - if primary server -> root delay and root dispersion = 0
- */
-
+int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
   struct timeval time_now;
+  u_int32_t  seconds, milisecond;
 
-  int version_number = (recv_msg->status & VERSION_MASK);
   // se descarta el mensaje
+  int version_number = (msg->status & VERSION_MASK);
   if (version_number<1 && version_number>3) return -1;
 
-  
-  // fija modo=4 (servidor)
-  recv_msg->status = (recv_msg->status ^ 7) | 4;
-  printf("---status: %d\n", recv_msg->status);
+  // se borra el contenido de la variable reply
+  memset(reply, 0, BUF_SIZE);  
 
-  recv_msg->stratum = 1;
-  recv_msg->precision = 0;
-  recv_msg->rootdelay.int_parts = 0; recv_msg->rootdelay.fractions = 0;
-  recv_msg->dispersion.int_parts = 0; recv_msg->dispersion.fractions = 0;
-  recv_msg->refid = 0; // ip del shoa????
-  
+  // fija el LI = 0 version = msg version y modo = 4
+  reply->status = (msg->status & (7<<3)) + 4;
 
-  recv_msg->orgtime.int_partl = recv_msg->xmttime.int_partl;
-  recv_msg->orgtime.fractionl = recv_msg->xmttime.fractionl;
+  reply->stratum = 1;
+  reply->ppoll = msg->ppoll;
+  reply->precision = 0;
+  reply->rootdelay.int_parts = 0; reply->rootdelay.fractions = 0;
+  reply->dispersion.int_parts = 0; reply->dispersion.fractions = 0;
+  reply->refid = 0; // ip del shoa????
+
+  reply->orgtime.int_partl = msg->xmttime.int_partl;
+  reply->orgtime.fractionl = msg->xmttime.fractionl;
 
   if (gettimeofday(&time_now, NULL) == -1) return -1;
 
-  // tv_usec esta en microsegundos. pasar a milisegundos
-  // verificar si inicia del 1970 o del 1900
-  recv_msg->reftime.int_partl = time_now.tv_sec; recv_msg->reftime.fractionl = time_now.tv_usec;
-  recv_msg->rectime.int_partl = time_now.tv_sec; recv_msg->rectime.fractionl = time_now.tv_usec;
-  recv_msg->xmttime.int_partl = time_now.tv_sec; recv_msg->xmttime.fractionl = time_now.tv_usec;
+  seconds = time_now.tv_sec + JAN_1970;
+  milisecond = time_now.tv_usec / 1000;
 
-  printf("Se creo la respuesta...\n");
+  reply->reftime.int_partl = seconds; reply->reftime.fractionl = milisecond;
+  reply->rectime.int_partl = seconds; reply->rectime.fractionl = milisecond;
+  reply->xmttime.int_partl = seconds; reply->xmttime.fractionl = milisecond;
+
+  printf("[SERVER]: Se creo la respuesta...\n");
   return 0;
 }
 
@@ -115,13 +107,13 @@ int print_msg(struct ntp_msg *recv_msg) {
   printf("stratum: %d\n", recv_msg->stratum);
   printf("ppoll : %d\n", recv_msg->ppoll);
   printf("precision : %d\n", recv_msg->precision);
-  printf("rootdelay : %d\n", recv_msg->rootdelay.int_parts);
-  printf("dispersion : %d\n", recv_msg->dispersion.int_parts);
+  printf("rootdelay : %d.%d\n", recv_msg->rootdelay.int_parts, recv_msg->rootdelay.fractions);
+  printf("dispersion : %d.%d\n", recv_msg->dispersion.int_parts, recv_msg->dispersion.fractions);
   printf("refid : %d\n", recv_msg->refid);
-  printf("reftime : %d\n", recv_msg->reftime.int_partl);
-  printf("orgtime : %d\n", recv_msg->orgtime.int_partl);
-  printf("rectime: %d\n", recv_msg->rectime.int_partl);
-  printf("xmttime: %d\n", recv_msg->xmttime.int_partl);
+  printf("reftime : %d.%d\n", recv_msg->reftime.int_partl, recv_msg->reftime.fractionl);
+  printf("orgtime : %d.%d\n", recv_msg->orgtime.int_partl, recv_msg->orgtime.fractionl);
+  printf("rectime: %d.%d\n", recv_msg->rectime.int_partl, recv_msg->rectime.fractionl);
+  printf("xmttime: %d.%d\n", recv_msg->xmttime.int_partl, recv_msg->xmttime.fractionl);
 
   return 0;
 }

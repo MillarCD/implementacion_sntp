@@ -5,6 +5,8 @@
 
 #include "sntp_config.h"
 
+#define IP "0.0.0.0"
+
 int create_res(struct ntp_msg *query, struct ntp_msg *reply);
 int print_msg(struct ntp_msg *recv_msg);
 
@@ -71,7 +73,7 @@ int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
 
   // se descarta el mensaje
   int version_number = (msg->status & VERSION_MASK);
-  if (version_number<1 && version_number>3) return -1;
+  if (version_number<1 && version_number>4) return -1;
 
   // se borra el contenido de la variable reply
   memset(reply, 0, BUF_SIZE);  
@@ -92,7 +94,11 @@ int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
   if (gettimeofday(&time_now, NULL) == -1) return -1;
 
   seconds = time_now.tv_sec + JAN_1970;
-  milisecond = time_now.tv_usec / 1000;
+  // SERVER: htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
+  // (d - (u_int32_t)d) = 1.0e-6 * time_now.tv_usec
+  // milisecond = htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
+  // CLIENT: ((double)lfp.fractionl / UINT_MAX)
+  milisecond = time_now.tv_usec / 1000; 
 
   reply->reftime.int_partl = seconds; reply->reftime.fractionl = milisecond;
   reply->rectime.int_partl = seconds; reply->rectime.fractionl = milisecond;

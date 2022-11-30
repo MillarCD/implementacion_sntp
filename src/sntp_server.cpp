@@ -2,6 +2,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/time.h>
+#include <climits>
 
 #include "sntp_config.h"
 
@@ -56,8 +57,12 @@ int main(int argc, char* argv[]) {
     if (create_res(&query, &reply) == -1) continue;
     
 
+    printf("[SERVER]: reply\n");
+    print_msg(&reply);
+    printf("\n\n");
     // ENVIAR REPUESTA
     sendto(sockfd, &reply, BUF_SIZE, 0, (const struct sockaddr *)&client_addr, addr_size);
+    printf("\n\n");
     
   }
 
@@ -70,6 +75,8 @@ int main(int argc, char* argv[]) {
 int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
   struct timeval time_now;
   u_int32_t  seconds, milisecond;
+
+  memset(&time_now, 0, sizeof(time_now));
 
   // se descarta el mensaje
   int version_number = (msg->status & VERSION_MASK);
@@ -93,12 +100,15 @@ int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
 
   if (gettimeofday(&time_now, NULL) == -1) return -1;
 
-  seconds = time_now.tv_sec + JAN_1970;
+//   seconds = time_now.tv_sec + JAN_1970;
+   seconds = time_now.tv_sec;
+//   seconds = 0;
   // SERVER: htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
   // (d - (u_int32_t)d) = 1.0e-6 * time_now.tv_usec
-  // milisecond = htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
   // CLIENT: ((double)lfp.fractionl / UINT_MAX)
-  milisecond = time_now.tv_usec / 1000; 
+  milisecond = htonl((u_int32_t)((1.0e-6 * time_now.tv_usec) * UINT_MAX));
+//   milisecond = htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
+//   milisecond = time_now.tv_usec / 1000; 
 
   reply->reftime.int_partl = seconds; reply->reftime.fractionl = milisecond;
   reply->rectime.int_partl = seconds; reply->rectime.fractionl = milisecond;
@@ -109,6 +119,12 @@ int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
 }
 
 int print_msg(struct ntp_msg *recv_msg) {
+
+  u_int64_t t1 = recv_msg->reftime.int_partl, tf1 = recv_msg->reftime.fractionl;
+  u_int64_t t2 = recv_msg->orgtime.int_partl, tf2 = recv_msg->orgtime.fractionl;
+  u_int64_t t3 = recv_msg->rectime.int_partl, tf3 = recv_msg->rectime.fractionl;
+  u_int64_t t4 = recv_msg->xmttime.int_partl, tf4 = recv_msg->xmttime.fractionl;
+
   printf("status: %d\n", recv_msg->status);
   printf("stratum: %d\n", recv_msg->stratum);
   printf("ppoll : %d\n", recv_msg->ppoll);
@@ -116,10 +132,10 @@ int print_msg(struct ntp_msg *recv_msg) {
   printf("rootdelay : %d.%d\n", recv_msg->rootdelay.int_parts, recv_msg->rootdelay.fractions);
   printf("dispersion : %d.%d\n", recv_msg->dispersion.int_parts, recv_msg->dispersion.fractions);
   printf("refid : %d\n", recv_msg->refid);
-  printf("reftime : %d.%d\n", recv_msg->reftime.int_partl, recv_msg->reftime.fractionl);
-  printf("orgtime : %d.%d\n", recv_msg->orgtime.int_partl, recv_msg->orgtime.fractionl);
-  printf("rectime: %d.%d\n", recv_msg->rectime.int_partl, recv_msg->rectime.fractionl);
-  printf("xmttime: %d.%d\n", recv_msg->xmttime.int_partl, recv_msg->xmttime.fractionl);
+  printf("reftime : %ld.%ld\n", t1, tf1);
+  printf("orgtime : %ld.%ld\n", t2, tf2);
+  printf("rectime: %ld.%ld\n", t3, tf3);
+  printf("xmttime: %ld.%ld\n", t4, tf4);
 
   return 0;
 }

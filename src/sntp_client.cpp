@@ -4,7 +4,7 @@
 
 #include "sntp_config.h"
 
-#define IP "0.0.0.0" // cambiar cuando no se trabaje en local
+#define IP "192.168.1.42" // cambiar cuando no se trabaje en local
 
 int create_msg(struct ntp_msg *recv_msg);
 int print_msg(struct ntp_msg *recv_msg);

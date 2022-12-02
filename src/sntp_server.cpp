@@ -57,6 +57,8 @@ int main(int argc, char* argv[]) {
     size = recvfrom(sockfd, &buffer, BUF_SIZE, 0, (struct sockaddr *)&client_addr, &addr_size);
     printf("[SERVER]: bytes received: %ld\n", size);
 
+    if (size!=48) continue;
+
     // PROCESAR MENSAJE
 
     memcpy(&query, buffer, sizeof(query));

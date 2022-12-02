@@ -11,20 +11,6 @@
 int create_res(struct ntp_msg *msg, struct ntp_msg *reply, u_int32_t ref_sec, u_int32_t ref_milsec);
 int print_msg(struct ntp_msg *recv_msg);
 u_int32_t swap_bytes(u_int32_t num) {
-  /*
-  char bytes[5];
-  memcpy(&bytes, &num, sizeof(num));
-
-  bytes[4] = bytes[0];
-  bytes[0] = bytes[3]; bytes[3] = bytes[4];
-  bytes[4] = bytes[1];
-  bytes[1] = bytes[2]; bytes[2] = bytes[4];
-
-  memcpy(&num, &bytes, sizeof(num));
-
-  return num;
-  */
-
   return ((num & 255) << 24) + ((num & (255<<8)) << 8) + ((num & (255<<16)) >> 8) + ((num & (255<<24)) >> 24);
 }
 
@@ -61,9 +47,9 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "[SERVER-ERROR]: socket bind failed. %d: %s\n", errno, strerror(errno));
     return -1;
   }
-
+  printf("Server is running at PORT %d\n", PORT);
   while (true) {
-    printf("[SERVER]: Esperando mensajes...\n");
+    // printf("[SERVER]: Esperando mensajes...\n");
     memset(&buffer, 0, BUF_SIZE);
     memset(&query, 0, BUF_SIZE);
 
@@ -75,19 +61,17 @@ int main(int argc, char* argv[]) {
 
     memcpy(&query, buffer, sizeof(query));
 
-    printf("[CLIENT]:\n");
-    print_msg(&query);
-    printf("\n\n");
+    // printf("[CLIENT]:\n");
+    // print_msg(&query);
+    // printf("\n\n");
     if (create_res(&query, &reply, ref_sec, ref_milsec) == -1) continue;
     
 
-    printf("[SERVER]: reply\n");
-    print_msg(&reply);
-    printf("\n\n");
+    // printf("[SERVER]: reply\n");
+    // print_msg(&reply);
+    // printf("\n\n");
     // ENVIAR REPUESTA
-    sendto(sockfd, &reply, BUF_SIZE, 0, (const struct sockaddr *)&client_addr, addr_size);
-    printf("\n\n");
-    
+    sendto(sockfd, &reply, BUF_SIZE, 0, (const struct sockaddr *)&client_addr, addr_size);    
   }
 
   close(sockfd);
@@ -134,7 +118,6 @@ int create_res(struct ntp_msg *msg, struct ntp_msg *reply, u_int32_t ref_sec, u_
   reply->rectime.int_partl = recv_sec; reply->rectime.fractionl = recv_milsec;
   reply->xmttime.int_partl = seconds; reply->xmttime.fractionl = milisecond;
 
-  printf("[SERVER]: Se creo la respuesta...\n");
   return 0;
 }
 

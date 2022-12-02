@@ -8,8 +8,25 @@
 
 #define IP "0.0.0.0"
 
-int create_res(struct ntp_msg *query, struct ntp_msg *reply);
+int create_res(struct ntp_msg *msg, struct ntp_msg *reply, u_int32_t ref_sec, u_int32_t ref_milsec);
 int print_msg(struct ntp_msg *recv_msg);
+u_int32_t swap_bytes(u_int32_t num) {
+  /*
+  char bytes[5];
+  memcpy(&bytes, &num, sizeof(num));
+
+  bytes[4] = bytes[0];
+  bytes[0] = bytes[3]; bytes[3] = bytes[4];
+  bytes[4] = bytes[1];
+  bytes[1] = bytes[2]; bytes[2] = bytes[4];
+
+  memcpy(&num, &bytes, sizeof(num));
+
+  return num;
+  */
+
+  return ((num & 255) << 24) + ((num & (255<<8)) << 8) + ((num & (255<<16)) >> 8) + ((num & (255<<24)) >> 24);
+}
 
 int main(int argc, char* argv[]) {
   int sockfd;
@@ -19,6 +36,13 @@ int main(int argc, char* argv[]) {
   int tos = IPTOS_LOWDELAY;
   ssize_t size;
   struct ntp_msg query, reply;
+
+  // Crear timepo de referencia
+  struct timeval reftime;
+  if (gettimeofday(&reftime, NULL) == -1) return -1;
+  uint32_t ref_sec, ref_milsec;
+  ref_sec = swap_bytes(reftime.tv_sec + JAN_1970);
+  ref_milsec = swap_bytes(htonl((uint32_t)((1.0e-6 * reftime.tv_usec) * UINT_MAX)));
 
   // CONFIG
   server_addr.sin_family = AF_INET;
@@ -54,7 +78,7 @@ int main(int argc, char* argv[]) {
     printf("[CLIENT]:\n");
     print_msg(&query);
     printf("\n\n");
-    if (create_res(&query, &reply) == -1) continue;
+    if (create_res(&query, &reply, ref_sec, ref_milsec) == -1) continue;
     
 
     printf("[SERVER]: reply\n");
@@ -72,9 +96,13 @@ int main(int argc, char* argv[]) {
 }
 
 
-int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
-  struct timeval time_now;
+int create_res(struct ntp_msg *msg, struct ntp_msg *reply, u_int32_t ref_sec, u_int32_t ref_milsec) {
+  struct timeval time_now, time_recv;
   u_int32_t  seconds, milisecond;
+  if (gettimeofday(&time_recv, NULL) == -1) return -1;
+  uint32_t recv_sec, recv_milsec;
+  recv_sec = swap_bytes(time_recv.tv_sec + JAN_1970);
+  recv_milsec = swap_bytes(htonl((uint32_t)((1.0e-6 * time_recv.tv_usec) * UINT_MAX)));
 
   memset(&time_now, 0, sizeof(time_now));
 
@@ -93,25 +121,17 @@ int create_res(struct ntp_msg *msg, struct ntp_msg *reply) {
   reply->precision = 0;
   reply->rootdelay.int_parts = 0; reply->rootdelay.fractions = 0;
   reply->dispersion.int_parts = 0; reply->dispersion.fractions = 0;
-  reply->refid = 0; // ip del shoa????
+  reply->refid = 0;
 
   reply->orgtime.int_partl = msg->xmttime.int_partl;
   reply->orgtime.fractionl = msg->xmttime.fractionl;
 
   if (gettimeofday(&time_now, NULL) == -1) return -1;
+  seconds = swap_bytes(time_now.tv_sec + JAN_1970);
+  milisecond = swap_bytes(htonl((u_int32_t)((1.0e-6 * time_now.tv_usec) * UINT_MAX)));
 
-//   seconds = time_now.tv_sec + JAN_1970;
-   seconds = time_now.tv_sec;
-//   seconds = 0;
-  // SERVER: htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
-  // (d - (u_int32_t)d) = 1.0e-6 * time_now.tv_usec
-  // CLIENT: ((double)lfp.fractionl / UINT_MAX)
-  milisecond = htonl((u_int32_t)((1.0e-6 * time_now.tv_usec) * UINT_MAX));
-//   milisecond = htonl((u_int32_t)((d - (u_int32_t)d) * UINT_MAX))
-//   milisecond = time_now.tv_usec / 1000; 
-
-  reply->reftime.int_partl = seconds; reply->reftime.fractionl = milisecond;
-  reply->rectime.int_partl = seconds; reply->rectime.fractionl = milisecond;
+  reply->reftime.int_partl = ref_sec; reply->reftime.fractionl = ref_milsec;
+  reply->rectime.int_partl = recv_sec; reply->rectime.fractionl = recv_milsec;
   reply->xmttime.int_partl = seconds; reply->xmttime.fractionl = milisecond;
 
   printf("[SERVER]: Se creo la respuesta...\n");
